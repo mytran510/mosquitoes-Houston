@@ -1,0 +1,253 @@
+---
+title: "My Tran - Research Project Sp2023"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+date: "2023-02-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Preparation:**
+
+```{r, echo=T, message = F, warning = F}
+library(tidyverse, quietly = T)
+library('scales')
+library(ggplot2)
+library(plotly)
+```
+
+# **Data:**
+
+```{r, warning = F}
+library(readxl)
+data <- read_excel("Arthropod Master Report 2015_2020.xlsx",na=c("","NA"))
+data <- data.frame(data)
+attach(data)
+dim(data)
+```
+
+# **Get familiar with data:**
+
+## **First subset of data**
+
+```{r}
+library(tidyverse)
+library(lubridate)
+data <- data %>% mutate(Date = make_date(year, month, day))
+```
+
+```{r}
+data1 <- data %>%
+  select(DateTime, SpeciesAbbr1, 
+         TotFemCount1, TotMaleCount1, TrapType) %>%
+  na.omit()
+  
+data1$TotFemCount1 <- as.numeric(data1$TotFemCount1)
+data1$TotMaleCount1 <- as.numeric(data1$TotMaleCount1)
+sapply(data1, class)
+```
+
+### *Analyze the quality and quantity of species.*
+
+```{r}
+total_female = sum(na.omit(data1$TotFemCount1)) #amount of female species
+
+total_male = sum(na.omit(data1$TotMaleCount1)) #amount of female species
+
+total_species = total_male + total_female #amount of species which were collected
+
+rate_female = percent(total_female / total_species) #rate of female species 
+
+rate_male = percent(total_male/total_species) #rate of male species
+```
+
+The amount of female species is `r toString(total_female)`
+
+The amount of male species is: `r toString(total_male)`
+
+The total amount of species which were collected is: `r toString(total_species)`
+
+The rate of female species is: `r toString(rate_female)` 
+
+The rate of male species is: `r toString(rate_male)`
+
+```{r}
+types = data1 %>% group_by(SpeciesAbbr1) %>% summarise() %>% nrow() #amount of type
+```
+
+The total amount of types of species which were collected is: `r toString(types)`
+
+```{r}
+data1 %>% summarise(total_female = sum(na.omit(TotFemCount1)),
+                    total_male = sum(na.omit(TotMaleCount1)))
+```
+
+```{r echo=FALSE, fig.height=12, fig.width=12, message=FALSE}
+library(ggplot2)
+library(reshape)
+data1_2 <- data1 %>% select(SpeciesAbbr1, TotFemCount1, TotMaleCount1) %>% 
+  group_by(SpeciesAbbr1) %>%
+  summarise(female = sum(TotFemCount1), male = sum(TotMaleCount1)) %>%
+  arrange(desc(female)) %>%
+  head(10)
+data1_2 <- data.frame(data1_2)
+df2 <- reshape::melt(data1_2, id = c("SpeciesAbbr1"))
+df2 %>% ggplot(aes(x = SpeciesAbbr1, y = value, fill = variable)) + 
+  geom_bar(stat = "identity") + facet_wrap(~ variable) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+
+```
+
+### *Season*
+
+```{r, echo=F,fig.height=10, fig.width=12, message=F}
+data1 %>%
+  plot_ly(x = ~month(data1$Date)) %>% 
+  add_histogram(color = I("pink"), 
+                stroke = I("black"), 
+                span = I(2), 
+                alpha = 0.6) %>% 
+  group_by(month(data1$Date)) %>%
+  summarise(Species_Count = n()) %>% 
+  layout(title = "Histogram of Collected Species by Month", xaxis = list(title = "Month"), yaxis = list(title = "Amount of Species")) 
+```
+
+```{r}
+df1 <- data1 %>% group_by(weekday = wday(data1$DateTime), TrapType) %>% 
+  summarise (total = sum(TotMaleCount1)+sum(TotFemCount1)) 
+df1 %>%
+  ggplot(aes(x= weekday,y=total,group=TrapType,color=TrapType)) + 
+  geom_point(size = 3) + 
+  geom_line(size = 0.5) + 
+  facet_wrap(~TrapType,nrow=1) + 
+  theme(legend.position="none") +
+  scale_x_discrete(breaks=c(1,2,3,4,5,6,7))
+
+
+```
+
+```{r}
+library(ggplot2)
+theme_set(theme_minimal())
+library(tidyverse)
+df2 <- data1 %>% group_by(year = year(data1$DateTime)) %>% 
+  summarise (female = sum(TotFemCount1), 
+             male = sum(TotMaleCount1),
+             total = sum(TotMaleCount1)+sum(TotFemCount1)) 
+df2 %>%
+  ggplot(aes(x=year)) + 
+  geom_line(aes(y=female),color='darkred') +
+  geom_line(aes(y = male), color="steelblue") +
+  labs(y='Species Amount',
+       x='Year',
+       title='Collected Species by Year') 
+
+
+```
+
+```{r}
+library(plotly)
+library(dplyr)
+data1 %>% 
+  group_by(Year = year(data1$DateTime)) %>% 
+  summarise(Species_Amount = n()) %>% 
+  ggplot(aes(Year,Species_Amount)) + geom_point() + geom_smooth()
+```
+
+```{r}
+#How many positive happens?
+data3 <- data %>% group_by(WNVClass,SLEClass,CHKClass,DENClass,ZKAClass) %>%
+  summarise(total_mosquitoes = sum(sum(TotFemCount1),sum(TotMaleCount1)))
+```
+
+```{r}
+#data %>% group_by(WNVClass) %>% count(month_year) %>% arrange(month_year)
+#map for month, n (no Negative)
+```
+
+```{r}
+#How many positive over year?
+data %>% group_by(Year) %>% 
+  filter(WNVClass == 'Positive') %>%
+  summarise(total_mosquitoes = sum(sum(TotFemCount1),sum(TotMaleCount1))) 
+```
+
+
+
+```{r}
+data2 <- data %>% filter(Zip!=7737) %>% group_by(Zip) %>% na.omit() %>%
+  mutate(total_mosquitoes = sum(sum(TotFemCount1),sum(TotMaleCount1))) 
+```
+```{r}
+library(sf)
+zipcode <- st_read('cb_2020_us_zcta520_500k.shx',layer = "cb_2020_us_zcta520_500k")
+```
+
+
+```{r}
+library(tigris)
+
+
+houston_zipcodes <- tigris:: zctas(cb=F,class='sf',starts_with = 77)
+
+data2$Zip <- as.character(data2$Zip) 
+
+
+heat_map_of_Houston <- houston_zipcodes %>% left_join(data2, by = c("ZCTA5CE20" = 'Zip')) %>% na.omit()
+```
+
+```{r,fig.width=19, fig.height=16}
+
+ggplot(heat_map_of_Houston) + geom_sf(aes(fill = total_mosquitoes)) + scale_fill_viridis_c(option = "inferno" , begin = 0.1, label = scales::comma) + stat_sf_coordinates() + theme(legend.position="right",
+        plot.title = element_text(hjust = 0.5,color = "dark red", size = 16, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, color = "dark red", size = 14, face = "bold"),
+        plot.caption = element_text(color = "Gray60"))+ 
+  guides(fill = guide_legend(title = "Mosquitoes Count", title.position = "top", 
+                             title.theme =element_text(size = 10, face = "bold",
+                                                       colour = "Black",angle = 0)))  + 
+  geom_sf_text(aes(label = ZCTA5CE20), colour = "grey", alpha = 0.6) + 
+  labs(title = "Mosquitoes Count by Zipcode in Houston", subtitle = "2015 to 2020")
+```
+
+
+```{r}
+#Weather
+##Weather Data from The National Oceanic and Atmospheric Administration (NOAA)'s Climate Data Online
+install.packages("xts")
+install.packages("tsbox")
+install.packages("forecast")
+
+```
+
+```{r}
+weather <- read.csv('weather.csv')
+names(weather)
+range(weather$DATE)
+```
+
+```{r}
+data4 <-weather %>% group_by(DATE) %>% filter (NAME == 'HOUSTON NATIONAL WEATHER SERVICE OFFICE, TX US') %>% select(DATE, NAME, PRCP, LATITUDE, LONGITUDE) 
+```
+
+
+```{r}
+data4$Date <- as.Date(data4$DATE)
+# Merge the data sets based on date-time column
+merged_data <- data %>% inner_join(data4, by=c('Date'))
+merged_data <- merged_data %>% select(SpeciesAbbr1, TotFemCount1, TotMaleCount1, Date, DateTime, PRCP) %>% 
+  group_by(Date, PRCP) %>%
+  summarise(total = sum(TotFemCount1) + sum(TotMaleCount1)) %>% 
+  na.omit(total)
+```
+
+```{r}
+model <- lm(total ~ PRCP, merged_data)
+summary(model)
+```
+
