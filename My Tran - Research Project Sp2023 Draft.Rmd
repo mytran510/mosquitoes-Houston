@@ -184,10 +184,7 @@ data %>% group_by(Year) %>%
 data2 <- data %>% filter(Zip!=7737) %>% group_by(Zip) %>% na.omit() %>%
   mutate(total_mosquitoes = sum(sum(TotFemCount1),sum(TotMaleCount1))) 
 ```
-```{r}
-library(sf)
-zipcode <- st_read('cb_2020_us_zcta520_500k.shx',layer = "cb_2020_us_zcta520_500k")
-```
+
 
 
 ```{r}
@@ -249,5 +246,68 @@ merged_data <- merged_data %>% select(SpeciesAbbr1, TotFemCount1, TotMaleCount1,
 ```{r}
 model <- lm(total ~ PRCP, merged_data)
 summary(model)
+```
+p-value is 0.619 > 0.05 (alpha), we failed to reject the null hypothesis. The rate of precipitaion in Houston is not significant of predictor of the amount of mosquitoes.
+
+```{r}
+anova(model)
+```
+
+```{r}
+plot(model)
+```
+
+
+```{r}
+res <- model$residuals
+qqnorm(res)
+qqline(res)
+```
+
+```{r}
+fitted <- model$fitted.values
+plot(fitted, res, pch=16)
+abline(h=0, lty='dashed')
+```
+
+
+
+```{r}
+# Normality plot
+plot(model, which = 2)
+
+# Homoscedasticity plot
+plot(model, which = 1)
+
+```
+
+```{r}
+merged_data$PRCP_lag <- lag(merged_data$PRCP, 5)
+model <- lm(total~PRCP_lag, merged_data)
+summary(model)
+```
+
+```{r}
+#Check accuracy
+set.seed(123)
+train_indices <- sample(nrow(merged_data), 0.7 * nrow(merged_data))
+train_data <- merged_data[train_indices, ]
+test_data <- merged_data[-train_indices, ]
+new_model <- lm(total~PRCP_lag, train_data)
+# Make predictions on the test set
+predictions <- predict(new_model, newdata = test_data)
+
+# Calculate evaluation metrics
+rsq <- summary(new_model)$r.squared
+mse <- mean((test_data$total - predictions)^2,na.rm=T)
+rmse <- sqrt(mse)
+mae <- mean(abs(test_data$total - predictions),na.rm=T)
+
+
+```
+
+```{r}
+#Use distinct() to delete the same row. Take out LabNo first.
+#Final model with lag3-7
 ```
 
