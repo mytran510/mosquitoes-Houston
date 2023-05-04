@@ -123,7 +123,7 @@ print.data.frame(data1_1,row.names=F)
 
 There are 4686179 female mosquitoes and 639737 male mosquitoes collected.
 
-```{r echo=FALSE, fig.height=12, fig.width=12, message=FALSE,warning=F}
+```{r echo=FALSE, fig.height=9, fig.width=12, message=FALSE,warning=F}
 library(ggplot2)
 library(reshape)
 data1_2 <- data1 %>% select(SpeciesAbbr1, TotFemCount1, TotMaleCount1) %>% 
@@ -145,7 +145,7 @@ This produces the bar chart with the counts of the type of mosquitoes for each _
 
 ### Season
 
-```{r, echo=F,fig.height=10, fig.width=8, message=F}
+```{r, echo=F,fig.height=9, fig.width=8, message=F}
 data1 %>%
   plot_ly(x = ~month(data1$DateTime)) %>% 
   add_histogram(color = I("pink"), 
@@ -243,7 +243,7 @@ data2 <- data %>% filter(Zip!=7737) %>% group_by(Zip) %>% na.omit() %>%
   mutate(total_mosquitoes = sum(sum(TotFemCount1),sum(TotMaleCount1))) 
 ```
 
-```{r,echo=F,warning=F, message=F,cache=T}
+```{r,include=F,warning=F, message=F,cache=T}
 library(tigris)
 
 
@@ -347,10 +347,12 @@ summary(model)
 
 p-value of the model 0.0002583 is less than alpha 0.05, we reject the null hypothesis. Therefore, there is statistically significant relationship between the number of mosquitoes and PRCP delayed from 3-7 days. However, p-value of PRCP_lag6 and 7 are less than alpha 0.05. It means that the precipitation rate of 6 or 7 days before will affect on the population of mosquitoes at the time of prediction.
 
+```{r,include=F,warning=F,message=FALSE}
+library('caret')
+```
 ```{r}
 #Check accuracy
 # Split the data into training and testing sets
-library('caret')
 set.seed(123123)
 trainIndex <- createDataPartition(merged_data$total, p = .8, list = FALSE)
 train <- merged_data[trainIndex, ]
@@ -373,8 +375,15 @@ MAE
 R2
 
 ```
+```{r,echo=FALSE}
+knitr::opts_chunk$set(R2 = R2,
+                      MSE = MSE,
+                      RMSE = RMSE,
+                      MAE = MAE)
 
-The R-squared value represents the proportion of variance in the response variable that is explained by the predictor variable. Higher values indicate a better fit of the model. R-squared value of this model is `r toString(r2)`. It is not bad, but not really good number. It needs to be closer to 1 to get better fit for our model.
+```
+
+The R-squared value represents the proportion of variance in the response variable that is explained by the predictor variable. Higher values indicate a better fit of the model. R-squared value of this model is `r toString(R2)`. It is not bad, but not really good number. It needs to be closer to 1 to get better fit for our model.
 
 The MSE, RMSE, and MAE represent the average squared `r toString(MSE)`, square-rooted `r toString(RMSE)`, and absolute differences `r toString(MAE)` between the predicted and actual values, respectively. Lower values indicate better accuracy of the model's predictions.
 
