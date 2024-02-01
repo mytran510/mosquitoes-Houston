@@ -1,0 +1,501 @@
+---
+title: "Analysis of Mosquitoes Species Data in Houston 2015-2020"
+subtitle: "My Tran" 
+author: "Dr. Katherine Shoemaker"
+date: "2023-06-17"
+output: 
+  slidy_presentation: 
+    smaller: yes
+---
+
+```{r setup, include=FALSE,message=F}
+knitr::opts_chunk$set(echo = TRUE, fig.align = 'center')
+library(tidyverse)
+```
+
+# Preparation:
+
+```{r, echo=T, message = F, warning = F}
+library(tidyverse, quietly = T)
+library('scales')
+library(ggplot2)
+library(plotly)
+library(dplyr)
+```
+
+# Data:
+
+Mosquitoes are one of the most dangerous insects. They are found almost everywhere around the world. Mosquitoes transmit various diseases to human by biting and drawing blood. The only way to protect yourself is to avoid bites from infected mosquitoes. However, in order to be vigilant, we need to better understand its behavior and reproductive density and development. The dataset “Arthropod Master Report 2015_2020” was collected from traps designed and placed throughout Houston over the period of 2015-2020. We decide to use this dataset to analyze mosquito’s biological behavior, such as the growth, in Houston environment.
+
+There are 173743 observations of 39 variables in this data set. However, result of many traps were sent to many Labs at the same time and repeated in the data set. It caused 5574 duplicated rows occurred if we delete 'LabNo' column. After cleaning the data, we have 168169 observations of 38 variables.
+
+```{r, warning = F,echo=F,message=F,cache=T}
+library(readxl)
+data <- read_excel("Arthropod Master Report 2015_2020.xlsx",na=c("","NA"))
+data <- data.frame(data)
+data <- subset(data, select = -c(LabNo))
+data <- data %>% distinct()
+```
+```{r}
+attach(data)
+dim(data)
+```
+
+# Get familiar with data:
+
+We split data into many subsets to analyze which factor is significant on the amount of mosquitoes collected.
+
+## First subset of data
+
+The first subset is about the amount of mosquitoes over time. We select time (DateTime), type of mosquitoes (SpeciesAbbr1), the amount of female mosquitoes (TotFemCount1), the amount of male mosquitoes (TotMaleCount1), and type of trap they desgined (TrapType). We use this code below to clean this subset of data.
+
+```{r,echo=F,message=F,warning=F}
+library(tidyverse)
+library(lubridate)
+data <- data %>% mutate(Date = make_date(year, month, day))
+```
+
+```{r}
+data1 <- data %>%
+  select(DateTime, SpeciesAbbr1, 
+         TotFemCount1, TotMaleCount1, TrapType) %>%
+  na.omit()
+data1 <- data.frame(data1)
+attach(data1)
+```
+
+```{r,echo=F,eval=F}
+data1$TotFemCount1 <- as.numeric(data1$TotFemCount1)
+data1$TotMaleCount1 <- as.numeric(data1$TotMaleCount1)
+sapply(data1, class)
+```
+
+---
+
+### Analyze the quality and quantity of species.
+
+```{r,echo=F}
+total_female = sum(data1$TotFemCount1) #amount of female species
+
+total_male = sum(data1$TotMaleCount1) #amount of female species
+
+total_species = total_male + total_female #amount of species which were collected
+
+rate_female = percent(total_female / total_species) #rate of female species 
+
+rate_male = percent(total_male / total_species) #rate of male species
+```
+
+
+```{r,echo=F}
+knitr::opts_chunk$set(total_female= total_female,
+                      total_male = total_male,
+                      total_species = total_species,
+                      rate_female = rate_female,
+                      rate_male = rate_male)
+
+```
+
+The amount of female species is `r toString(total_female)`
+
+The amount of male species is: `r toString(total_male)`
+
+The total amount of species which were collected is: `r toString(total_species)`
+
+The rate of female species is: `r toString(rate_female)` 
+
+The rate of male species is: `r toString(rate_male)`
+
+```{r,echo=F}
+types = data1 %>% group_by(SpeciesAbbr1) %>% summarise() %>% nrow() #amount of type
+```
+
+
+```{r,echo=FALSE}
+knitr::opts_chunk$set(types = types)
+
+```
+
+The total amount of types of species which were collected is: `r toString(types)`
+
+```{r}
+data1_1 <- data1 %>% summarise(total_female = sum(TotFemCount1),
+                    total_male = sum(TotMaleCount1))
+print.data.frame(data1_1,row.names=F)
+```
+
+There are 4686179 female mosquitoes and 639737 male mosquitoes collected.
+
+```{r echo=FALSE, fig.height=6, fig.width=9, message=FALSE,warning=F}
+library(ggplot2)
+library(reshape)
+data1_2 <- data1 %>% select(SpeciesAbbr1, TotFemCount1, TotMaleCount1) %>% 
+  group_by(SpeciesAbbr1) %>%
+  summarise(female = sum(TotFemCount1), male = sum(TotMaleCount1)) %>%
+  arrange(desc(female)) %>%
+  head(10)
+data1_2 <- data.frame(data1_2)
+df2 <- reshape::melt(data1_2, id = c("SpeciesAbbr1"))
+df2 %>% ggplot(aes(x = SpeciesAbbr1, y = value, fill = variable)) + 
+  geom_bar(stat = "identity") + facet_wrap(~ variable) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+
+```
+
+This produces the bar chart with the counts of the type of mosquitoes for each __gender__.What can be clearly seen in this chart is __Cxqf__ is the highest type of mosquitoes which were collected. And the number of female mosquitoes is much higher than the male in general.
+
+---
+
+### Season
+
+```{r, echo=F,fig.height=6, fig.width=9, message=F}
+data1 %>%
+  plot_ly(x = ~month(data1$DateTime)) %>% 
+  add_histogram(color = I("pink"), 
+                stroke = I("black"), 
+                span = I(2), 
+                alpha = 0.6) %>% 
+  group_by(month(data1$DateTime)) %>%
+  summarise(Species_Count = n()) %>% 
+  layout(title = "Histogram of Collected Species by Month", xaxis = list(title = "Month"), yaxis = list(title = "Amount of Species")) 
+```
+
+In the summer and until the end of October, the number of mosquitoes rise up dramatically. It can be said that this season of the year in Houston is when  mosquitoes are most active.
+
+---
+
+### Week
+
+After grouping data by the Trap Type, we identify that BG, GV and SS are 3 main types of trap they used to collect mosquitoes in Houston. 
+
+```{r, echo=FALSE,warning=F,message=F}
+df1 <- data1 %>% group_by(weekday = wday(data1$DateTime), TrapType) %>% 
+  summarise (total = sum(TotMaleCount1)+sum(TotFemCount1)) 
+df1
+```
+
+
+And this chart below is a comparison between the number of mosquitoes from 3 trap types by day of the week.
+
+```{r, echo=F,warning=F,message=F,fig.height=6, fig.width=9}
+
+df1 %>%
+  ggplot(aes(x= weekday,y=total,group=TrapType,color=TrapType)) + 
+  geom_point(size = 3) + 
+  geom_line(size = 0.5) + 
+  facet_wrap(~TrapType,nrow=1) + 
+  theme(legend.position="none") +
+  scale_x_discrete(breaks=c(1,2,3,4,5,6,7))
+
+
+```
+
+However, only 6 points represent for 6 days of the week on each line. The traps were just collected on 6 days and the collector take a break on Tuesday.
+
+---
+
+### Year
+
+Over the five-year period, there is always a significant difference between the number of male and female mosquitoes. Female species account for a much larger number and tend to decrease rapidly from 2017 to 2019.
+
+```{r,echo=F,fig.width=9, fig.height=6}
+library(ggplot2)
+theme_set(theme_minimal())
+library(tidyverse)
+df2 <- data1 %>% group_by(year = year(data1$DateTime)) %>% 
+  summarise (female = sum(TotFemCount1), 
+             male = sum(TotMaleCount1),
+             total = sum(TotMaleCount1)+sum(TotFemCount1)) 
+df2 %>%
+  ggplot(aes(x=year)) + 
+  geom_line(aes(y=female,color='Female')) +
+  geom_line(aes(y = male,color='Male')) +
+  labs(y='Species Amount',
+       x='Year',
+       title='Collected Species by Year',
+       color = "Gender") 
+
+
+```
+
+```{r,echo=F,fig.width=9, fig.height=6,warning=F, message=F}
+library(plotly)
+library(dplyr)
+data1 %>% 
+  group_by(Year = year(data1$DateTime)) %>% 
+  summarise(Species_Amount = n()) %>% 
+  ggplot(aes(Year,Species_Amount)) + geom_point() + geom_smooth()
+```
+
+It can be seen that the fluctuations of the number of female samples and of the total number of collected mosquitoes tend to be almost the same. They both increased during the beginning of the period and decreased substantially since 2017.
+
+---
+
+#### How many positive species are there over year?
+
+After going through the steps of collection and classification, the research Labs will begin to examine the common diseases that the mosquito species can spread. They are marked __Positive__ if they carry the disease. This table below is the statistics of the amount of Positive mosquitoes each year.
+
+```{r,echo=F}
+#How many positive over year?
+data %>% group_by(Year) %>% 
+  filter(WNVClass == 'Positive') %>%
+  summarise(total_mosquitoes = sum(sum(TotFemCount1),sum(TotMaleCount1))) 
+```
+
+---
+
+## Second subset of data
+
+The second subset is about the amount of mosquitoes over the area of Houston (Zipcode map). However, in the data set, there are 18 observations which show mosquitoes are collected in Zipcode 7737. We will create a graph of Zipcode without that strange zipcode. We use this code below to clean this subset of data.
+
+
+```{r}
+data2 <- data %>% filter(Zip!=7737) %>% group_by(Zip) %>% na.omit() %>%
+  mutate(total_mosquitoes = sum(sum(TotFemCount1),sum(TotMaleCount1))) 
+```
+
+```{r,echo=F,warning=F, message=F,cache=T,results=F}
+library(tigris)
+library(sf)
+
+houston_zipcodes <- tigris:: zctas(cb=F,class='sf',starts_with = 77)
+
+data2$Zip <- as.character(data2$Zip) 
+
+
+heat_map_of_Houston <- houston_zipcodes %>% left_join(data2, by = c("ZCTA5CE20" = 'Zip')) %>% na.omit()
+```
+
+```{r,fig.width=16, fig.height=13,warning=F, message=F,cache=T}
+
+ggplot(heat_map_of_Houston) + geom_sf(aes(fill = total_mosquitoes)) + scale_fill_viridis_c(option = "inferno" , begin = 0.1, label = scales::comma) + stat_sf_coordinates() + theme(legend.position="right",
+        plot.title = element_text(hjust = 0.5,color = "dark red", size = 16, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, color = "dark red", size = 14, face = "bold"),
+        plot.caption = element_text(color = "Gray60"))+ 
+  guides(fill = guide_legend(title = "Mosquitoes Count", title.position = "top", 
+                             title.theme =element_text(size = 10, face = "bold",
+                                                       colour = "Black",angle = 0)))  + 
+  geom_sf_text(aes(label = ZCTA5CE20), colour = "grey", alpha = 0.6) + 
+  labs(title = "Mosquitoes Count by Zipcode in Houston", subtitle = "2015 to 2020")
+```
+
+A point worth noting is the further away from the center, the higher the amount of mosquitoes is. We could understand that the habitat in the suburbs of Houston is a suitable place for mosquitoes to live and grow, as well as a place with a high risk of mosquito-borne diseases.
+
+---
+
+## Weather subset
+
+__So, why are mosquitoes a serious year-around problem in Houston? Is Houston weather one of the factors involved in this proliferation?__
+
+We analyze the association between Houston weather and mosquito populationis by combining this data set and the Weather data set. The Weather Data is taken from _The National Oceanic and Atmospheric Administration (NOAA)'s Climate Data Online_ website and at the location _"HOUSTON NATIONAL WEATHER SERVICE OFFICE, TX US"_ with the time coincident with the time of Mosquitoes Data.
+
+```{r,echo=F,warning=F,message=F}
+#Weather
+##Weather Data from The National Oceanic and Atmospheric Administration (NOAA)'s Climate Data Online
+library("xts")
+library("tsbox")
+library("forecast")
+
+```
+
+```{r}
+weather <- read.csv('weather.csv')
+names(weather)
+range(weather$DATE)
+```
+
+```{r}
+data4 <-weather %>% group_by(DATE) %>% filter (NAME == 'HOUSTON NATIONAL WEATHER SERVICE OFFICE, TX US') %>% select(DATE, NAME, PRCP, LATITUDE, LONGITUDE) 
+```
+
+
+```{r,warning=F,message=F}
+data4$Date <- as.Date(data4$DATE)
+# Merge the data sets based on date-time column
+merged_data <- data %>% inner_join(data4, by=c('Date'))
+merged_data <- merged_data %>% select(SpeciesAbbr1, TotFemCount1, TotMaleCount1, Date, DateTime, PRCP) %>% 
+  group_by(Date, PRCP) %>%
+  summarise(total = sum(TotFemCount1) + sum(TotMaleCount1)) %>% 
+  na.omit(total)
+```
+
+# Model
+
+## Testing Model
+
+We use simple linear regression to predict the amount of mosquito species on the basis of the precipitation rate of Houston at the specified time.  
+
+```{r}
+model <- lm(total ~ PRCP, merged_data)
+summary(model)
+```
+
+However, p-value is approximately 0.69 > 0.05 (alpha), we failed to reject the null hypothesis. The rate of the precipitation in Houston is not significant of predictor of the amount of mosquitoes.
+
+We check the normality of the model to see if it meets the requirement of other test how well the model fits our data.
+
+```{r}
+plot(model)
+```
+
+However, by visualizing, a Q-Q plot shows the points in the plot does not fall along a straight diagonal line. Therefore, this data is not normally distributed. It means that the precipitation rate of Houston does not affect on the amount of mosquitoes on that date.
+
+---
+
+## Final Model
+
+__Lagging-time series__ is the method we use to get the autocorrection between 2 time series of Weather Data and Mosquitoes Data by delaying 1 time series. 
+
+__Definition__: _The coefficient of correlation between two values in a time series is called the autocorrelation function (ACF). This value of k is the time gap being considered and is called the lag. A lag 1 autocorrelation (i.e., k = 1 in the above) is the correlation between values that are one time period apart. More generally, a lag k autocorrelation is the correlation between values that are k time periods apart._ - by Iain Pardoe in book "Applied Regression Modeling - 3rd edition"
+
+We use __lag()__ function to shift the time series back 3-7 days to get the coefficient of correlation of the precipitation few days ago with the amount of mosquitoes at time. We predict mosquitoes species based on the the precipitation rate of 3-7 days ago.
+
+```{r}
+merged_data$PRCP_lag3 <- lag(merged_data$PRCP, 3)
+merged_data$PRCP_lag4 <- lag(merged_data$PRCP, 4)
+merged_data$PRCP_lag5 <- lag(merged_data$PRCP, 5)
+merged_data$PRCP_lag6 <- lag(merged_data$PRCP, 6)
+merged_data$PRCP_lag7 <- lag(merged_data$PRCP, 7)
+model <- lm(total~PRCP_lag3+PRCP_lag4+PRCP_lag5+PRCP_lag6+PRCP_lag7, merged_data)
+summary(model)
+```
+
+p-value of the model 0.0002583 is less than alpha 0.05, we reject the null hypothesis. Therefore, there is statistically significant relationship between the number of mosquitoes and PRCP delayed from 3-7 days. However, p-value of PRCP_lag6 and 7 are less than alpha 0.05. It means that the precipitation rate of 6 or 7 days before will affect on the population of mosquitoes at the time of prediction.
+
+---
+
+```{r,include=F,warning=F,message=FALSE}
+library('caret')
+```
+```{r}
+#Check accuracy
+# Split the data into training and testing sets
+set.seed(123123)
+trainIndex <- createDataPartition(merged_data$total, p = .8, list = FALSE)
+train <- merged_data[trainIndex, ]
+test <- merged_data[-trainIndex, ]
+
+# Fit the multiple linear regression model
+new_model <- lm(total ~ PRCP_lag3 + PRCP_lag4 + PRCP_lag5 + PRCP_lag6 + PRCP_lag7, data = train)
+
+# Make predictions on the test set
+predictions <- predict(new_model, newdata = test)
+
+# Compute the accuracy metrics
+MSE <- mean(na.omit((test$total - predictions)^2))
+RMSE <- sqrt(MSE)
+MAE <- mean(abs(na.omit(test$total - predictions)))
+R2 <- cor(test$total, na.omit(predictions))^2
+MSE
+RMSE
+MAE
+R2
+
+```
+```{r,echo=FALSE}
+knitr::opts_chunk$set(R2 = R2,
+                      MSE = MSE,
+                      RMSE = RMSE,
+                      MAE = MAE)
+
+```
+
+The R-squared value represents the proportion of variance in the response variable that is explained by the predictor variable. Higher values indicate a better fit of the model. R-squared value of this model is `r toString(R2)`. It is not bad, but not really good number. It needs to be closer to 1 to get better fit for our model.
+
+The MSE, RMSE, and MAE represent the average squared `r toString(MSE)`, square-rooted `r toString(RMSE)`, and absolute differences `r toString(MAE)` between the predicted and actual values, respectively. Lower values indicate better accuracy of the model's predictions.
+
+---
+
+```{r}
+plot(model)
+```
+
+The Q-Q plot of this model shows the points in the plot does not fall along a straight diagonal line. Therefore, this data is not normally distributed. We need to improve the model to get the best fit.
+
+---
+
+```{r}
+step(model,direction=c("both", "backward", "forward"))
+```
+
+After using step() function to get the better fit, AIC does not change much, but we still test the new model to see if the model is improved or not.
+
+```{r}
+model1 <- lm(total ~ PRCP_lag3+PRCP_lag4+PRCP_lag6+PRCP_lag7,merged_data)
+summary(model1)
+```
+
+The new Adjusted R-squared is 0.02165 is even smaller than the previous model's R-square (0.0219). We could not use this model as a final model.
+
+---
+
+Another way is __Outlier Detection and Removal by using Cook's distance__.
+
+```{r}
+#calculate Cook's distance
+cd <- cooks.distance(model)       
+#Identify the influential observations using a threshold value of Cook's distance
+threshold <- 4/nrow(merged_data)  
+influential <- which(cd > threshold)
+#Remove the influential observations from the data set 
+merged_data_clean <- merged_data[-influential,] 
+#Fit the model again
+model_clean <- lm(total ~ PRCP_lag3 + PRCP_lag4 + PRCP_lag6 + PRCP_lag7, data = merged_data_clean)
+summary(model_clean)
+```
+
+```{r,echo=F,fig.width=10, fig.height=8}
+plot(cd,ylab="Cooks distances")
+```
+
+Its R-squared still decreases. So, we could give conclude that we should  use all the lagged-time series of the precipitation from 3-7 days to predict the total amount of mosquitoes. 
+
+---
+
+__Why should we use lagged-time series?__
+
+We choose a specified period from November 2020 to the end of that year and make a chart to see how significant the total amount of collected mosquitoes with the original precipitation and the lagged-time series precipitation. 
+
+```{r}
+merged_data %>% filter(Date >= as.Date("2020-11-01") & 
+                         Date <= as.Date("2020-12-31")) %>% 
+  select(Date, total, PRCP, PRCP_lag6,PRCP_lag7)
+```
+
+
+```{r,echo=F,fig.width=10, fig.height=8}
+library(ggplot2)
+
+merged_data %>% filter(Date >= as.Date("2020-11-01") & 
+                         Date <= as.Date("2020-12-31")) %>% 
+  ggplot( aes(x = Date)) +
+  geom_bar(aes(y = total), stat = "identity", fill = "grey") +
+  geom_line(aes(y = 50000*PRCP, color = "PRCP"),linetype = "solid", 
+            show.legend = TRUE) +
+  geom_line(aes(y = 50000*PRCP_lag6, color = "PRCP_lag6"),
+            linetype = "solid", 
+            show.legend = TRUE) +
+  geom_line(aes(y = 50000*PRCP_lag7, color = "PRCP_lag7"),
+            linetype = "solid", 
+            show.legend = TRUE) +
+  scale_y_continuous(name = 'Count',
+                     sec.axis = sec_axis(~./50000, name = 'Precipitation Rate')) +
+  labs(x = "Time", title = "Total and PRCP 7 days ago",
+  subtitle= "11/1/2020-12/31/2020") +
+  theme_bw() +
+  scale_color_manual(name = "PRCP Rate",
+                     values = c("PRCP"="black",
+                                "PRCP_lag6"="red",
+                                "PRCP_lag7"= "blue"),
+                     breaks = c("PRCP", "PRCP_lag6", "PRCP_lag7"))
+
+```
+
+As it is observed, the volatility of the original PRCP does not reflect on the mosquito population at all. However, the PRCP_lag6 and lag7 almost overlap the bar columns, and have the same trend of the fluctuation as the total amount of mosquitoes.
+
+
+# Conclusion:
+
+To sum up, the number of mosquitoes in Houston is extremely large and needs to be analyzed and understood to enhance the awareness of the dangers that mosquitoes bring. Depending on the environment conditions such as terrain, weather, etc., mosquitoes reproduce and develop in different numbers. In particular, Houston's weather, which has high humidity, is a favorable condition for mosquitoes to grow. However, the amount of mosquitoes that will be affected and fluctuates is almost based on the precipitation of the previous 6-7 day period. This may be referred to as the precention period or the mosquito prediction period.
